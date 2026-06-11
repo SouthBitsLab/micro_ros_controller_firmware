@@ -5,6 +5,4 @@ external
 .vscode/compile_commands.json
 .vscode/extensions.json
 bootloader/
-micro_ros_zephyr_module/
-zephyr/
 tools/

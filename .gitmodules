@@ -1,0 +1,7 @@
+[submodule "zephyr"]
+    path = zephyr
+    url = https://github.com/SouthBitsLab/zephyrproject-rtos.git
+
+[submodule "micro_ros_zephyr_module"]
+    path = micro_ros_zephyr_module
+    url = https://github.com/SouthBitsLab/micro-ROS.git

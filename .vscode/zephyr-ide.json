@@ -1,0 +1,47 @@
+{
+  "projects": {
+    "nucleo_h723_microros": {
+      "rel_path": "apps/nucleo_h723_microros",
+      "name": "nucleo_h723_microros",
+      "buildConfigs": {
+        "build/nucleo_h723zg": {
+          "board": "nucleo_h723zg",
+          "relBoardSubDir": "st/nucleo_h723zg",
+          "name": "build/nucleo_h723zg",
+          "westBuildArgs": [],
+          "westBuildCMakeArgs": [
+            "-DCONFIG_DEBUG_OPTIMIZATIONS=y",
+            "-DCONFIG_DEBUG_THREAD_INFO=y"
+          ],
+          "confFiles": {
+            "config": [],
+            "overlay": []
+          },
+          "activeProfile": "default"
+        }
+      },
+      "twisterConfigs": {},
+      "confFiles": {
+        "config": [],
+        "overlay": []
+      }
+    }
+  },
+  "runnerProfiles": [
+    {
+      "name": "default",
+      "flash": {
+        "kind": "west-flash",
+        "runner": "openocd"
+      },
+      "debug": {
+        "kind": "cortex-debug",
+        "runner": "openocd",
+        "probe": "interface/stlink.cfg"
+      },
+      "attach": {
+        "kind": "auto"
+      }
+    }
+  ]
+}

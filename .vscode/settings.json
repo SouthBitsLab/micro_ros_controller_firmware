@@ -1,0 +1,14 @@
+{
+    "terminal.integrated.defaultProfile.linux": "Zephyr IDE Terminal",
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/.vscode/compile_commands.json",
+    "cmake.configureOnOpen": false,
+    "json.schemas": [
+        {
+            "fileMatch": [
+                "zephyr-ide.json",
+                "**/zephyr-ide.json"
+            ],
+            "url": "file:///home/jacob/.vscode-server/extensions/mylonics.zephyr-ide-3.3.5/resources/zephyr-ide-schema.json"
+        }
+    ]
+}

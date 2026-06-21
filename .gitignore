@@ -7,3 +7,5 @@ external
 bootloader/
 tools/
 modules/
+memory/
+./claude

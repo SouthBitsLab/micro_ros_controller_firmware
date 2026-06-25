@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "Rover Controller Firmware Configuration"
+
+menu "ROS Interface"
+
+config ROVER_ROS_AGENT_IP
+    string "micro-ROS agent IP address"
+    default "10.42.0.1"
+    help
+      Default IP address of the micro-ROS agent on the host.
+
+config ROVER_ROS_AGENT_PORT
+    string "micro-ROS agent port"
+    default "8888"
+    help
+      Default UDP port of the micro-ROS agent.
+
+endmenu # ROS Interface
+
+menu "Debug"
+
+config ROVER_LOG_CONTROL_LOOP
+    bool "Log control loop iterations"
+    default n
+    help
+      Enable verbose logging inside the motor control loop.
+
+endmenu # Debug
+
+source "Kconfig.zephyr"

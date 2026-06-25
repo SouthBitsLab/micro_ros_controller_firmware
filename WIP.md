@@ -1,7 +1,7 @@
 # Zephyr micro-ROS Robot Control Firmware
 
 > **Status:** Work in progress / early hardware integration stage  
-> **Current milestone:** micro-ROS + Zephyr bring-up completed. Next focus: ROS 2 interface definition, motor bring-up, safety logic, and sensor integration.
+> **Current milestone:** ICG-20660L IMU driver integrated and validated with polling + trigger samples. Next focus: `/cmd_vel` subscriber, command timeout fail-safe, motor bring-up, wattmeter integration, and ROS 2 interface definition.
 
 This repository contains embedded firmware for a Zephyr RTOS based robot control project. The firmware runs on an **ST Nucleo-H723AG** board and communicates with a high-level ROS 2 host through **micro-ROS**.
 
@@ -24,7 +24,7 @@ The target robot platform is a four-wheel mobile base using DDSM/M0601 hub motor
 - [ ] four-wheel velocity mapping completed
 - [ ] wheel feedback publishing completed
 - [ ] wattmeter driver integrated
-- [ ] IMU driver integrated
+- [x] IMU driver integrated
 - [ ] GNSS driver integrated
 - [ ] diagnostics and safety state machine completed
 
@@ -77,7 +77,7 @@ flowchart TB
     end
 
     subgraph SENSORS["Sensor Layer"]
-        IMU["ICG-20660L IMU<br/>Accelerometer + Gyroscope<br/>SPI"]
+        IMU["ICG-20660L IMU<br/>Accelerometer + Gyroscope<br/>I2C"]
         GNSS["GNSS GPS BeiDou + RTC<br/>Position / Time Reference<br/>UART or I2C"]
         WATT["Gravity I2C Digital Wattmeter<br/>Voltage / Current / Power<br/>I2C"]
     end
@@ -103,7 +103,7 @@ flowchart TB
 
     JETSON <-->|"micro-ROS Transport<br/>USB Serial initially; UDP/Ethernet later"| NUCLEO
     NUCLEO <-->|"Motor Command / Feedback<br/>UART / Direct Interface TBD"| HAT
-    NUCLEO <-->|"SPI"| IMU
+    NUCLEO <-->|"I2C"| IMU
     NUCLEO <-->|"UART or I2C"| GNSS
     NUCLEO <-->|"I2C"| WATT
 
@@ -153,11 +153,11 @@ flowchart TB
 
 ### Sensors
 
-| Component | Quantity | Interface | Purpose | Integration Priority |
-|---|---:|---|---|---|
-| Gravity I2C Digital Wattmeter | 1 | I2C | Voltage, current, power monitoring | High |
-| Fermion ICG-20660L 6-Axis IMU | 1 | SPI | Inertial measurement | Medium |
-| Gravity GNSS GPS BeiDou Positioning Module with RTC | 1 | UART / I2C | Global positioning and time reference | Medium / Low |
+| Component | Quantity | Interface | Purpose | Integration Priority | Status |
+|---|---:|---|---|---|---|
+| Gravity I2C Digital Wattmeter | 1 | I2C | Voltage, current, power monitoring | High | Not started |
+| Fermion ICG-20660L 6-Axis IMU | 1 | I2C | Inertial measurement | Medium | Driver + samples verified |
+| Gravity GNSS GPS BeiDou Positioning Module with RTC | 1 | UART / I2C | Global positioning and time reference | Medium / Low | Not started |
 
 ---
 
@@ -165,13 +165,37 @@ flowchart TB
 
 During early bring-up, keep the system simple and deterministic.
 
-- **micro-ROS transport:** USB Serial first
+- **micro-ROS transport:** UDP first (current `h723_rover_controller` default), USB Serial also supported
 - **Future transport option:** UDP/Ethernet once the motor and sensor stack is stable
 - **Motor interface:** UART or direct DDSM interface, to be confirmed during motor bring-up
-- **IMU interface:** SPI
+- **IMU interface:** I2C (`i2c1`, address `0x69` with SA0 high); driver supports polled and data-ready trigger modes
 - **GNSS interface:** UART first, I2C optional
 - **Wattmeter interface:** I2C
 - **Main development host:** Jetson AGX Orin or development PC running ROS 2 and micro-ROS Agent
+
+---
+
+## ICG-20660L IMU Integration Notes
+
+The in-tree Zephyr driver is located at [`zephyr/drivers/sensor/tdk/icg20660l/`](zephyr/drivers/sensor/tdk/icg20660l/).
+
+- **Part vs. module naming:** The datasheet part is **ICG-20660**; the "L" in `icg20660l` refers to the Fermion/DFRobot breakout module currently used on the robot.
+- **Interface:** I2C (Fast Mode, up to 400 kHz). The module is wired to `i2c1` at address `0x69` (SA0 high) in the test overlays.
+- **Supported channels:** `SENSOR_CHAN_ACCEL_*`, `SENSOR_CHAN_GYRO_*`, and `SENSOR_CHAN_DIE_TEMP`.
+- **Full-scale ranges:**
+  - Accelerometer: ±2/4/8/16 g via device-tree `accel-fs`.
+  - Gyroscope: ±125/250/500 dps via device-tree `gyro-fs`.
+- **Output data rate:** Configured through the `odr` device-tree property or `SENSOR_ATTR_SAMPLING_FREQUENCY`. The driver uses `SMPLRT_DIV` with a 1 kHz internal rate (DLPF_CFG = 1), giving 1000/n Hz where n = 1..256.
+- **Trigger support:** `SENSOR_TRIG_DATA_READY` using a dedicated GPIO interrupt (`int-gpios`). The `accel_trig` sample demonstrates this.
+- **Sample applications:**
+  - [`apps/accel_polling/`](apps/accel_polling/) — polled read loop.
+  - [`apps/accel_trig/`](apps/accel_trig/) — data-ready interrupt handler with per-second interrupt statistics.
+
+### Known Limitations
+
+- The driver is **I2C-only**. The Fermion module also exposes SPI pins, but SPI mode is not implemented.
+- FIFO, wake-on-motion, and accelerometer offset registers are not supported.
+- The driver reads `WHO_AM_I` **before** issuing the required soft reset. The datasheet states the correct `WHO_AM_I` value (`0x91`) is guaranteed only after the soft reset, so the identity check should be moved after `PWR_MGMT_1.DEVICE_RESET`.
 
 ---
 
@@ -197,8 +221,9 @@ During early bring-up, keep the system simple and deterministic.
 #### `/imu/data_raw`
 
 - **Type:** `sensor_msgs/msg/Imu`
-- **Rate:** 100 Hz target
+- **Rate:** 100 Hz target (configurable via device-tree `odr` or `SENSOR_ATTR_SAMPLING_FREQUENCY`)
 - **Purpose:** raw accelerometer and gyroscope data from ICG-20660L
+- **Status:** driver + polled/trigger samples verified; ROS 2 publisher not yet implemented
 
 #### `/fix`
 
@@ -426,8 +451,8 @@ Goal: integrate battery telemetry and basic safety.
 
 Goal: publish usable raw IMU data.
 
-- [ ] Implement SPI driver for ICG-20660L
-- [ ] Verify accelerometer and gyroscope readings
+- [x] Implement I2C driver for ICG-20660L
+- [x] Verify accelerometer and gyroscope readings
 - [ ] Calibrate sensor bias
 - [ ] Publish `/imu/data_raw`
 - [ ] Confirm frame convention with ROS 2 stack
@@ -549,14 +574,15 @@ Recommended next tasks:
 6. Add four-wheel motor abstraction.
 7. Add configurable motor direction signs.
 8. Publish wheel feedback.
-9. Integrate wattmeter and `/battery_state`.
-10. Add diagnostics and safety state machine.
+9. Publish `/imu/data_raw` from the ICG-20660L driver output.
+10. Integrate wattmeter and `/battery_state`.
+11. Add diagnostics and safety state machine.
 
 ---
 
 ## Project Status Summary
 
-This project is currently in the transition from software environment bring-up to hardware integration. Since Zephyr and micro-ROS are already running, the next critical path is:
+This project is currently in the transition from software environment bring-up to hardware integration. Zephyr, micro-ROS, and the ICG-20660L IMU driver are all running. The next critical path is:
 
 ```text
 ROS 2 command
@@ -567,4 +593,4 @@ ROS 2 command
   → wheel feedback and diagnostics
 ```
 
-Once this chain is reliable, the robot can move from firmware bring-up to controlled mobile base testing.
+Once this chain is reliable, the robot can move from firmware bring-up to controlled mobile base testing. In parallel, the verified IMU data can be wired into a `/imu/data_raw` publisher for the ROS 2 localization pipeline.

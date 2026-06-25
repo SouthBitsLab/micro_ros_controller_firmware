@@ -1,0 +1,20 @@
+/ {
+	aliases {
+		accel0 = &icg20660l;
+	};
+};
+
+&spi1 {
+	status = "okay";
+
+	icg20660l: icg20660l@0 {
+		compatible = "invensense,icg20660l";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		status = "okay";
+		accel-fs = <8>;  /* ±4g */
+		gyro-fs = <0>;   /* ±125 dps */
+		odr = <1000>;
+		int-gpios = <&gpiod 15 GPIO_ACTIVE_HIGH>;
+	};
+};

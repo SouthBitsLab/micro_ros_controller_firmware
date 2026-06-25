@@ -1,0 +1,76 @@
+/**
+ * @file nucleo_h723zg.overlay
+ * @brief Board-specific Devicetree overlay for the Nucleo-H723ZG rover controller.
+ *
+ * All robot hardware is exposed through Devicetree aliases so the C code stays
+ * independent of pin and bus assignments. The aliases are:
+ *   - imu0       : ICG-20660L 6-axis IMU on I2C1
+ *   - wattmeter0 : INA219-based power monitor on I2C1
+ *   - gnss0      : UART connected to the GNSS receiver
+ *   - motor0     : UART connected to the DDSM motor driver HAT
+ *
+ * Adapt the bus addresses, pins, and UART instances to the actual wiring.
+ */
+
+/ {
+	aliases {
+		imu0 = &icg20660l;
+		wattmeter0 = &wattmeter;
+		gnss0 = &gnss;
+		motor0 = &uart4;
+	};
+};
+
+/* I2C1 carries the IMU and the wattmeter at different addresses. */
+&i2c1 {
+	status = "okay";
+	clock-frequency = <I2C_BITRATE_FAST>;
+
+	wattmeter: wattmeter@40 {
+		compatible = "ti,ina219";
+		reg = <0x40>;
+		status = "okay";
+		/* Gravity I2C wattmeter defaults: 100 mΩ shunt, ~3.2 A range. */
+		lsb-microamp = <100>;
+		shunt-milliohm = <100>;
+	};
+
+	gnss: gnss-and-rtc@66 {
+		compatible = "dfrobot,gnss-and-rtc";
+		reg = <0x66>;
+		status = "okay";
+		gnss-mode = <7>;
+		poll-interval-ms = <1000>;
+	};
+};
+
+&spi1 {
+	status = "okay";
+
+	icg20660l: icg20660l@0 {
+		compatible = "invensense,icg20660l";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		status = "okay";
+		accel-fs = <8>;  /* ±4g */
+		gyro-fs = <0>;   /* ±125 dps */
+		odr = <500>;
+		int-gpios = <&gpiod 15 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+
+/* USART2 is reserved for a future raw NMEA GPS module. Disabled in this
+ * prototype because the DFRobot module is on I2C1.
+ */
+&usart2 {
+	status = "disabled";
+};
+
+/* UART4 drives the DDSM motor driver HAT. */
+&uart4 {
+	status = "okay";
+	pinctrl-0 = <&uart4_tx_pc10 &uart4_rx_pc11>;
+	pinctrl-names = "default";
+	current-speed = <115200>;
+};

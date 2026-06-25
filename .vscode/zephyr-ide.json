@@ -69,10 +69,36 @@
             "config": [],
             "overlay": [
               {
-                "path": "apps/accel_trig/test.overlay",
+                "path": "apps/accel_trig/spi.overlay",
                 "extra": true
               }
             ]
+          },
+          "activeProfile": "default"
+        }
+      },
+      "twisterConfigs": {},
+      "confFiles": {
+        "config": [],
+        "overlay": []
+      }
+    },
+    "rover_controller": {
+      "rel_path": "apps/rover_controller",
+      "name": "rover_controller",
+      "buildConfigs": {
+        "build/nucleo_h723zg": {
+          "board": "nucleo_h723zg",
+          "relBoardSubDir": "st/nucleo_h723zg",
+          "name": "build/nucleo_h723zg",
+          "westBuildArgs": [],
+          "westBuildCMakeArgs": [
+            "-DCONFIG_DEBUG_OPTIMIZATIONS=y",
+            "-DCONFIG_DEBUG_THREAD_INFO=y"
+          ],
+          "confFiles": {
+            "config": [],
+            "overlay": []
           },
           "activeProfile": "default"
         }

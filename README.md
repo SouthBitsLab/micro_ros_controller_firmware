@@ -64,11 +64,27 @@ The current hardware setup includes the following components.
 
 ### Sensors
 
-| Component | Quantity | Interface | Purpose |
-|---|---:|---|---|
-| Gravity GNSS GPS BeiDou Positioning Module with RTC | 1 | I2C / UART | Global positioning and time reference |
-| Fermion ICG 20660L Accel + Gyro 6-Axis IMU Module | 1 | SPI | Inertial measurement |
-| Gravity I2C Digital Wattmeter | 1 | I2C | Voltage, current, power monitoring |
+| Component | Quantity | Interface | Purpose | Status |
+|---|---:|---|---|---|
+| Gravity GNSS GPS BeiDou Positioning Module with RTC | 1 | I2C / UART | Global positioning and time reference | Not integrated |
+| Fermion ICG 20660L Accel + Gyro 6-Axis IMU Module | 1 | I2C | Inertial measurement | Driver integrated, samples verified |
+| Gravity I2C Digital Wattmeter | 1 | I2C | Voltage, current, power monitoring | Not integrated |
+
+> **Note on the IMU interface:** The Fermion breakout module exposes both I2C and SPI pins, but the in-tree Zephyr driver (`zephyr/drivers/sensor/tdk/icg20660l/`) is currently **I2C-only**. The current wiring and sample applications use I2C. SPI support would require extending the driver to use `spi_dt_spec` and the sensor's 4-wire SPI protocol.
+
+### ICG-20660L IMU Driver
+
+The Zephyr driver is located in [`zephyr/drivers/sensor/tdk/icg20660l/`](zephyr/drivers/sensor/tdk/icg20660l/):
+
+- **Part name:** The datasheet part is **ICG-20660**; the "L" suffix refers to the Fermion/DFRobot breakout module used on the robot.
+- **Interface:** I2C (Fast Mode, up to 400 kHz). The module is wired to `i2c1` at address `0x69` (SA0 pulled high).
+- **Channels:** Accelerometer (±2/4/8/16 g), gyroscope (±125/250/500 dps), and die temperature.
+- **Trigger support:** `SENSOR_TRIG_DATA_READY` via a dedicated GPIO interrupt line (`int-gpios`).
+- **Sample applications:**
+  - [`apps/accel_polling/`](apps/accel_polling/) — polled `sensor_sample_fetch()` loop.
+  - [`apps/accel_trig/`](apps/accel_trig/) — interrupt-driven data-ready handler with per-second interrupt statistics.
+
+> **Driver limitation:** The driver does not currently implement the sensor's 512-byte FIFO, SPI mode, wake-on-motion, or accelerometer offset registers.
 
 ---
 
@@ -105,7 +121,7 @@ flowchart TB
     %% Sensor Layer
     %% =========================================================
     subgraph SENSORS["Sensor Layer"]
-        IMU["ICG-20660L 6-Axis IMU<br/>Accelerometer + Gyroscope<br/>I2C / SPI"]
+        IMU["ICG-20660L 6-Axis IMU<br/>Accelerometer + Gyroscope<br/>I2C"]
         GNSS["GNSS GPS BeiDou + RTC<br/>Position / Time Reference<br/>I2C / UART"]
     end
 
@@ -156,7 +172,7 @@ flowchart TB
     %% =========================================================
     JETSON <-->|"micro-ROS Transport<br/>Serial / UDP / Ethernet TBD"| NUCLEO
 
-    NUCLEO <-->|"I2C / SPI"| IMU
+    NUCLEO <-->|"I2C"| IMU
     NUCLEO <-->|"I2C or UART"| GNSS
     WATT -.->|"I2C Telemetry<br/>Voltage / Current / Power"| NUCLEO
 
@@ -242,7 +258,7 @@ flowchart TB
                   |--------------------------------|      |-----------------------------------|
                   | ICG-20660L 6-Axis IMU          |      | DDSM Driver HAT (A)               |
                   |  - Accelerometer + Gyroscope   |      |                                   |
-                  |  - I2C / SPI                   |      | Used as temporary motor driver    |
+                  |  - I2C                         |      | Used as temporary motor driver    |
                   |                                |      | hardware for prototyping.         |
                   | GNSS GPS BeiDou + RTC          |      |                                   |
                   |  - Position / time reference   |      | Onboard ESP32 is not used.        |

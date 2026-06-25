@@ -92,14 +92,15 @@ int main(void)
 	k_work_schedule(&stats_work, K_MSEC(1000));
 
 	while (1) {
-		k_sem_take(&sem, K_FOREVER);
+		// k_sem_take(&sem, K_FOREVER);
 		sensor_channel_get(dev, SENSOR_CHAN_ACCEL_XYZ, data);
 		uint32_t timestamp = k_uptime_get_32();
 
-		// /* Print timestamp and accel x,y,z data */
-		// printf("[%10u ms] %16s [m/s^2]:    (%12.6f, %12.6f, %12.6f)\n",
-		//        timestamp, dev->name,
-		//        sensor_value_to_double(&data[0]), sensor_value_to_double(&data[1]),
-		//        sensor_value_to_double(&data[2]));
+		/* Print timestamp and accel x,y,z data */
+		printf("[%10u ms] %16s [m/s^2]:    (%12.6f, %12.6f, %12.6f)\n",
+		       timestamp, dev->name,
+		       sensor_value_to_double(&data[0]), sensor_value_to_double(&data[1]),
+		       sensor_value_to_double(&data[2]));
+		k_sleep(K_MSEC(1000));
 	}
 }
